@@ -82,7 +82,7 @@ def color_line(color, in_value):     # color: 'green', 'red', silver'
     elif color == 'green':
         value = ((in_value[1] / sum(in_value)) * 100) - ((in_value[0] / (in_value[0]+in_value[1])) * 100)
     elif color == 'red':
-        value = in_value[0] / sum(in_value) * 100
+        value = (in_value[0]/sum(in_value)) * 100
     elif color == 'white':
         value = in_value[2]/in_value[1]*100
     # elif color == 'black':
@@ -94,20 +94,22 @@ def color_reference(rgb_data):
     global line_color; global wb_threshold
     color_dict = {}
     # white 합계와 silver 합계의 경계값을 silver 기준, 측정값의 합계가 기준보다 크면 silver
-    color_dict['l_silver_line'] = color_line('silver', rgb_data['l_silver'])[2] - sil_threshold 
-    color_dict['r_silver_line'] = color_line('silver', rgb_data['r_silver'])[2] - sil_threshold 
+    # color_dict['l_silver_line'] = (color_line('silver', rgb_data['l_silver']) + color_line('white', rgb_data['l_white'])) / 2
+    # color_dict['r_silver_line'] = (color_line('silver', rgb_data['r_silver']) + color_line('white', rgb_data['r_white'])) / 2
+    color_dict['l_silver_line'] = 100 - sil_threshold
+    color_dict['r_silver_line'] = 100 - sil_threshold
     # red의 비중 -10 이상이면 red이다
     color_dict['l_red_line'] = color_line('red', rgb_data['l_red']) - 10
     color_dict['r_red_line'] = color_line('red', rgb_data['r_red']) - 10
     # (green의 비중-(r/(r+g))*100)-5 값이 ??% 이상이면 green이다.
-    color_dict['l_green_line'] = color_line('green', rgb_data['l_green']) - 10
-    color_dict['r_green_line'] = color_line('green', rgb_data['r_green']) - 10
-    # white 기준 -10을 기준, 이것보다 높으면 흰색
+    color_dict['l_green_line'] = color_line('green', rgb_data['l_green']) - 15
+    color_dict['r_green_line'] = color_line('green', rgb_data['r_green']) - 15
+    # white 기준 -10을 기준, 이것보다 높으면 흰
     color_dict['l_white_line'] = color_line('white', rgb_data['l_white']) - w_threshold
     color_dict['r_white_line'] = color_line('white', rgb_data['r_white']) - w_threshold
     # black의 green 값 + 5를 기준, 이것보다 낮으면 black
-    # color_dict['l_black_line'] = color_line('black', rgb_data['l_black']) + b_threshold
-    # color_dict['r_black_line'] = color_line('black', rgb_data['r_black']) + b_threshold
+    # color_dict['l_black_line'] = color_line('black', rgb_data['l_black']) + lb_threshold
+    # color_dict['r_black_line'] = color_line('black', rgb_data['r_black']) + rb_threshold
     # 경계값 구하기
     threshold_l = (rgb_data['l_white'][line_color] + rgb_data['l_black'][line_color]) / 2
     threshold_r = (rgb_data['r_white'][line_color] + rgb_data['r_black'][line_color]) / 2
@@ -115,8 +117,8 @@ def color_reference(rgb_data):
     deep_r = rgb_data['r_black'][line_color] + rb_threshold
     under_l = rgb_data['l_white'][line_color] - w_threshold
     under_r = rgb_data['r_white'][line_color] - w_threshold
-    black_l = rgb_data['l_black'][line_color] -1
-    black_r = rgb_data["r_black"][line_color] -1
+    black_l = rgb_data['l_black'][line_color] -10
+    black_r = rgb_data["r_black"][line_color] -10
     return color_dict, threshold_l, threshold_r, deep_l, deep_r, under_l, under_r, black_l, black_r
 
 # 왼쪽:1, 오른:2, black:1, green:3, red:4, white:5, silver:7, none:0
@@ -125,10 +127,12 @@ def color_detect(color_dict):
     # l_color, r_color 센서 측정값 분석 - R,G,B 측정값이 추가되면 같이 추가해야 함
     l_rgb = l_color.rgb()
     r_rgb = r_color.rgb()
+    print('L', l_rgb)
+    print('R', r_rgb)
     l_sensor = l_rgb[line_color]     # RGB값중 green값으로 라인트레이싱
     r_sensor = r_rgb[line_color]     # RGB값중 green값으로 라인트레이싱
     # 각 색 기준값과 현재 left 센서 측정값 비교 - l_line 결과값
-    if color_line('silver', l_rgb)[2] >= color_dict['l_silver_line'] and color_line('silver', l_rgb)[0] + color_line('silver', l_rgb)[1] >= color_dict['l_silver_line']:
+    if color_line('silver', l_rgb)[2] > color_dict['l_silver_line'] and sum(l_rgb) > 150:
         l_line = 17
     elif color_line('red', l_rgb) > color_dict['l_red_line']:
         l_line = 14
@@ -145,7 +149,7 @@ def color_detect(color_dict):
     else:
         l_line = 10
     # 각 색 기준값과 현재 right 센서 측정값 비교 - r_line 결과값
-    if color_line('silver', r_rgb)[2] >= color_dict['r_silver_line'] and color_line('silver', r_rgb)[0] + color_line('silver', r_rgb)[1] >= color_dict['r_silver_line']:
+    if color_line('silver', r_rgb)[2] > color_dict['r_silver_line'] and sum(r_rgb) > 150:
         r_line = 27
     elif color_line('red', r_rgb) > color_dict['r_red_line']:
         r_line = 24
@@ -161,6 +165,7 @@ def color_detect(color_dict):
         r_line = 21
     else:
         r_line = 20
+    print('l', l_line, 'r', r_line)
     return l_line, r_line, l_sensor, r_sensor
 # R, G, B로 분석한 값 출력 함수 & Two sensor line tracing - run()사용
 def pid_control(l_sensor, r_sensor, speed, kp, ki, kd, min_speed, st_ratio = 0, mode = 'dc'):
@@ -604,25 +609,41 @@ def moving_while(more=False):
 
 # RGB 측정값 입력
 rgb_data = {
-    'l_white': (35, 31, 66),
-    'r_white': (37, 26, 65),
-    'l_black': (3, 2, 4),
-    'r_black': (2, 1, 5),
-    'l_green': (9, 20, 10), 
-    'r_green': (8, 17, 10),
-    'l_silver': (62, 61, 100), 
-    'r_silver': (74, 49, 100),
-    'l_red': (17, 3, 7), 
-    'r_red': (16, 3, 9)
+    'l_white': (27, 24, 53),
+    'r_white': (22, 17, 49),
+    'l_black': (4, 3, 6),
+    'r_black': (2, 1, 4),
+    # 'l_black': (3, 2, 5),
+    # 'r_black': (5, 3, 9),
+    'l_green': (8, 21, 10), 
+    'r_green': (7, 16, 9),
+    'l_silver': (52, 49, 100), 
+    'r_silver': (46, 32, 100),
+    'l_red': (16, 2, 6), 
+    'r_red': (15, 2, 6)
 }
-
+# rgb_data = {
+#     'l_white': (35, 31, 67),
+#     'r_white': (34, 28, 70),
+#     'l_black': (10, 9, 17),
+#     'r_black': (12, 7, 17),
+#     # 'l_black': (3, 2, 5),
+#     # 'r_black': (5, 3, 9),
+#     'l_green': (11, 23, 10), 
+#     'r_green': (10, 19, 11),
+#     'l_silver': (62, 61, 100), 
+#     'r_silver': (74, 49, 100),
+#     'l_red': (17, 3, 7), 
+#     'r_red': (16, 3, 9)
+# }
 # 라인트레이싱에 사용할 빛 - line_color=0: red, line_color=1: green, line_color=2: blue
 line_color = 0
 
 # 백색과 검은색을 구분하는 경계값 - 숫자가 낮으면 분명한 백색 or 검은색
 w_threshold = 2
-lb_threshold = 6
-rb_threshold = 6
+lb_threshold = 8
+
+rb_threshold = 8
 sil_threshold = 10
 
 # weight: 우측으로 휘면 -값, 좌측으로 휘면 +값, wheel_diameter: 바퀴지름, axle_track: 바퀴간 거리
@@ -632,7 +653,7 @@ move_set = {'weight': -1, 'wheel_diameter': 40.25, 'axle_track': 203}
 speed_threshold = 100
 
 # 라인트레이싱 설정값 정의 d: 0~100%, run: deg/s
-dc_mode = {'speed':70, 'kp':3, 'ki':0.06798234212, 'kd':4.5, 'min_speed':50, 'st_ratio':8, 'mode':'dc'}
+dc_mode = {'speed':70, 'kp':4, 'ki':0.07798234212, 'kd':3, 'min_speed':50, 'st_ratio':8, 'mode':'dc'}
 run_mode = {'speed':500, 'kp':5, 'ki':0, 'kd':0, 'min_speed': 400, 'st_ratio':8,'mode':'run'}
 
 # pixycam의 signature 번호 입력
@@ -751,10 +772,26 @@ ball =0
 
 # while True:
 #     pass
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 aa = False
+aaa=False
 start = 0
 while True:
-    if aa:
+    if aaa:
         break
     # 초록의 감지 횃수
     green_detect = 0
@@ -763,6 +800,7 @@ while True:
     last_w_move = 0
     last_l = 0
     last_r = 0
+    w_move = ''
     # EV3 center 버튼을 누를 때까지 대기 - 시작
     message("Press CENTER button", "to START")
     while not Button.CENTER in ev3.buttons.pressed():
@@ -777,8 +815,10 @@ while True:
     # 라인따라가는 정보저장 초기화
     l_list = []
     r_list = []
+    arm_motor.brake()
     arm_motor.run_until_stalled(1000)
-    arm_motor.run(-1000)
+    arm_motor.run_until_stalled(-1000)
+    arm_motor.run(-10)
     wait(1000)
     while True:
         # 라인트레이싱이 종료되면 다양한 처리를 하고 다시 라인트레이싱으로 복귀
@@ -798,10 +838,9 @@ while True:
             green = l_line == 13 or r_line == 23
             silver = l_line == 17 and r_line == 27
             red = l_line == 14 or r_line == 24
-            aid_kit, x, y = object_detect(1, DISTANCE=130)
-            touch_ = touch.pressed()
+            aid_kit, x, y = False, 0, 0#object_detect(1, DISTANCE=130)
             # 선따라가기 루프 종료 - down 버튼 클릭, green, red, silver
-            if pressed or white or green or aid_kit or silver or touch_:
+            if pressed or white or green or aid_kit or silver or red:
                 left_motor.brake()
                 right_motor.brake()
                 break
@@ -816,7 +855,7 @@ while True:
             pid_control(l_sensor, r_sensor, line_mode['speed'], line_mode['kp'], line_mode['ki'], line_mode['kd'], 
                         line_mode['min_speed'], line_mode['st_ratio'], line_mode['mode'])
         # 사용자 중지로 처음으로 돌아감
-        if pressed:
+        if pressed or red:
             break
 
         # 라인 이탈 및 gap 처리
@@ -857,14 +896,14 @@ while True:
                         if n > 2: # 연속으로 21이 있는 경우
                             continue_num_r = n
             if l_num > 0 and r_num > 0:
-                if l_num > r_num:
+                if l_num > r_num:    # L > R 
                     if last_l > last_r:
                         w_move = 'left'
                     elif last_l < last_r:
                         if l_num_w > r_num_w:
                             w_move = 'left'
                         elif l_num_w < r_num_w:
-                            w_move = 'right'
+                            w_move = 'left'
                         else:
                             w_move = 'right'
                     else:
@@ -874,7 +913,7 @@ while True:
                             w_move = 'right'
                         else:
                             pass
-                elif l_num < r_num:
+                elif l_num < r_num:  #R > L
                     if last_l < last_r:
                         w_move = 'right'
                     elif last_l > last_r:
@@ -986,14 +1025,16 @@ while True:
             left_motor.hold()
             right_motor.hold()
             arm_motor.run(1000)
-        elif red:
-            wait(10000)
+        if l_line == 14 or r_line ==24:
+            aaa=True
+            break
+
             
 
         elif silver:
             arm_motor.brake()
             beep(3)
-            move(0, 500, 300)
+            move(0, 500, 150)
             move(0, 500, 40)
             turn = ''
 
@@ -1106,14 +1147,55 @@ while True:
 
             move(0, -500, 90)
             move(50, 500, 43)
-
-            move(0, 500, 1, stop=False)
+            black_check = False
             while True:
-                if touch.pressed():
-                    break
-                if l_color.rgb()[line_color] <= threshold_l and r_color.rgb()[line_color] <= threshold_l:
-                    break
 
+                move(0, 500, 1, stop=False)
+                while True:
+                    if touch.pressed():
+                        move(0, -500, 25)
+                        move(100, 500, 90)
+                        move(0, -500, 1, stop=False)
+                        while True:
+                            if not move_measure(0, 300):
+                                break
+                            if l_color.rgb()[line_color] <= threshold_l and r_color.rgb()[line_color] <= threshold_l:
+                                distance = move_distance((left_motor.angle() + right_motor.angle()) / 2)
+                                move(0, 500, distance)
+                                move(100, 500, 180)
+                                move(0, 500, distance)
+                                black_check = True
+                        if not black_check:
+                            break
+                    if l_color.rgb()[line_color] <= threshold_l and r_color.rgb()[line_color] <= threshold_l or black_check:
+                        black_check = False
+                        aa = True
+                        move(0, 500, 50)
+                        move(-50, 500, 1, stop=False)
+                        while l_color.rgb()[line_color] > threshold_l and r_color.rgb()[line_color] > threshold_l and move_measure(-50, 50):
+                            pass
+                        left_motor.brake()
+                        right_motor.brake()
+                        if not move_measure(-50, 50):
+                            move(-50, -500, 1, stop=False)
+                            while l_color.rgb()[line_color] > threshold_l and r_color.rgb()[line_color] > threshold_l and move_measure(-50, 50):
+                                pass
+                            left_motor.brake()
+                            right_motor.brake()
+                            move(50, 500, 1, stop=False)
+                            while l_color.rgb()[line_color] > threshold_l and r_color.rgb()[line_color] > threshold_l and move_measure(50, 50):
+                                pass
+                            left_motor.brake()
+                            right_motor.brake()
+                        row_align(20, 50, 10)
+                        break
+                if aa:
+                    l_list=[]
+                    r_list=[]
+                    aa=False
+                    break
+            aa = False
+            arm_motor.run_until_stalled(-100)
         elif green:
             print('debug:green:L', l_list)
             print('debug:green:R', r_list)
@@ -1123,38 +1205,40 @@ while True:
             green_detect = 0
             if l_line == 13 and r_line == 23:
                 print("move180")
-                move(0, 50, 45)
-                move(-100, 500, 180, stop=False)
+                move(0, 50, 25)
+                move(-100, 500, 160, stop=False)
+                lb_threshold += 5
+                rb_threshold += 5
                 while not l_color.rgb()[line_color] < threshold_l or r_color.rgb()[line_color] < threshold_r:
-                    pass    
+                    pass
+                lb_threshold -= 5
+                rb_threshold -= 5
+                left_motor.hold()
+                right_motor.hold()
                 continue
             # 그린이 왼쪽이면 True, 오른쪽이면 False
-            if l_line == 13:
-                lr = -100
-                copy_list = l_list + []
-                indexs = (13, 11)
-            else:
-                lr = 100
-                copy_list = r_list + []
-                indexs = (23, 21)
+            blacknum = l_list.count(11) if l_line == 13 else r_list.count(21)
+            lr = -100 if l_line == 13 else 100
             print(lr)
-            for i in range(9):
-                del copy_list[0]
-            blacknum = copy_list.count(indexs[1])
             print(blacknum)
             move(0, 500, 50, stop=False)
-            if blacknum > 3:
+            if blacknum > 4:
                 move(0, 500, 50)
                 continue
             move(lr, 500, 50, stop=False)
             while not l_color.rgb()[line_color] < threshold_l or r_color.rgb()[line_color] < threshold_r:
                 pass
-        elif touch_:
-            move(0, -500, 30, stop = True)
-            move(100, 500, 20, stop = True)
-            move(0, 500, 30, stop = True)
-            left_motor.run(100); right_motor.run(700)
-            while r_color.rgb()[line_color] > threshold_r:
-                pass
-            left_motor.hold()
-            right_motor.hold()
+            left_motor.brake()
+            right_motor.brake()
+            l_list = []
+            r_list = []
+        # elif touch_:
+        #     move(0, -500, 30, stop = True)
+        #     move(100, 500, 20, stop = True)
+        #     move(0, 500, 30, stop = True)
+        #     left_motor.run(100); right_motor.run(700)
+        #     while r_color.rgb()[line_color] > threshold_r:
+        #         pass
+        #     left_motor.hold()
+        #     right_motor.hold()
+        #     #/

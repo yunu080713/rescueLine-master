@@ -8,6 +8,8 @@ from pybricks.robotics import DriveBase
 from pybricks.media.ev3dev import SoundFile, ImageFile
 # from pixycamev3.pixy2 import Pixy2
 
+
+
 ev3 = EV3Brick()
 ev3.speaker.beep()
 
